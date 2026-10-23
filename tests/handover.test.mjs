@@ -7,6 +7,7 @@ import {
   getLocalDate,
   getRecentHandovers,
   sortHandovers,
+  sortPinnedHandovers,
   validateHandoverDraft,
 } from '../src/lib/handover.ts';
 
@@ -116,4 +117,20 @@ test('clears dirty state when values return to the saved snapshot', () => {
   assert.equal(areHandoverDraftsEqual(saved, saved), true);
   assert.equal(areHandoverDraftsEqual(saved, edited), false);
   assert.equal(areHandoverDraftsEqual(saved, { ...edited, workDate: saved.workDate }), true);
+});
+
+test('list prioritizes pins by date while home remains chronological', () => {
+  const items = [
+    { id: 'new', workDate: '2026-10-23', updatedAt: '2026-10-23T10:00:00Z' },
+    { id: 'old-pin', workDate: '2026-10-20', updatedAt: '2026-10-20T10:00:00Z', isPinned: true },
+    { id: 'new-pin', workDate: '2026-10-21', updatedAt: '2026-10-21T11:00:00Z', isPinned: true },
+    { id: 'same-date-pin', workDate: '2026-10-21', updatedAt: '2026-10-21T10:00:00Z', isPinned: true },
+    { id: 'older', workDate: '2026-10-22', updatedAt: '2026-10-22T10:00:00Z', isPinned: false },
+  ];
+  const before = structuredClone(items);
+  assert.deepEqual(sortPinnedHandovers(items).map(x => x.id), ['new-pin', 'same-date-pin', 'old-pin', 'new', 'older']);
+  assert.deepEqual(getRecentHandovers(items).map(x => x.id), ['new', 'older', 'new-pin']);
+  const unpinned = items.map(item => item.id === 'new-pin' ? { ...item, isPinned: false } : item);
+  assert.deepEqual(sortPinnedHandovers(unpinned).map(x => x.id), ['same-date-pin', 'old-pin', 'new', 'older', 'new-pin']);
+  assert.deepEqual(items, before);
 });

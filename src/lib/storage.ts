@@ -67,6 +67,7 @@ function isHandover(value: unknown): value is Handover {
     && typeof value.completed === 'string'
     && typeof value.inProgress === 'string'
     && typeof value.notes === 'string'
+    && (!('isPinned' in value) || typeof value.isPinned === 'boolean')
     && isIsoUtcTimestamp(value.createdAt)
     && isIsoUtcTimestamp(value.updatedAt);
 }
@@ -152,6 +153,7 @@ export async function saveHandover(
     id,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
+    ...(existing?.isPinned !== undefined ? { isPinned: existing.isPinned } : {}),
   };
   const records = existing
     ? state.records.map((record) => record.id === existing.id ? saved : record)
@@ -171,4 +173,30 @@ export async function deleteHandover(
   }
 
   return persistRecords(state.records.filter((record) => record.id !== id), storage);
+}
+
+export async function setHandoverPinned(
+  state: RecordsState,
+  id: string,
+  isPinned: boolean,
+  storage: StorageAdapter = platformStorage,
+): Promise<RecordsState> {
+  requireWritableState(state);
+  if (!state.records.some((record) => record.id === id)) {
+    throw new Error('Record not found');
+  }
+  return persistRecords(
+    state.records.map((record) => record.id === id ? { ...record, isPinned } : record),
+    storage,
+  );
+}
+
+export async function deleteUnpinnedHandovers(
+  state: RecordsState,
+  storage: StorageAdapter = platformStorage,
+): Promise<RecordsState> {
+  requireWritableState(state);
+  const retained = state.records.filter((record) => record.isPinned === true);
+  if (retained.length === state.records.length) return state;
+  return persistRecords(retained, storage);
 }

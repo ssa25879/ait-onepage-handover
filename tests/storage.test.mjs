@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   deleteHandover,
+  setHandoverPinned,
+  deleteUnpinnedHandovers,
   loadRecords,
   parseRecordsEnvelope,
   saveHandover,
@@ -165,4 +167,93 @@ test('keeps the previous records when delete storage fails', async () => {
 
   await assert.rejects(() => deleteHandover(state, record.id, storage));
   assert.deepEqual(state, before);
+});
+
+test('reads legacy and boolean pin values without automatic writes', async () => {
+  for (const value of [undefined, false, true]) {
+    const item = value === undefined ? record : { ...record, isPinned: value };
+    const storage = createStorage(envelope([item]));
+    assert.deepEqual(await loadRecords(storage), { status: 'ready', records: [item] });
+    assert.equal(storage.calls.set.length, 0);
+  }
+});
+
+test('rejects invalid pin metadata and preserves its original raw value', () => {
+  for (const isPinned of [null, 1, 'true', {}, []]) {
+    const raw = envelope([{ ...record, isPinned }]);
+    assert.deepEqual(parseRecordsEnvelope(raw), { status: 'error', reason: 'invalid-data', raw });
+  }
+});
+
+test('pinning preserves content and timestamps and survives reload and edit', async () => {
+  const state = { status: 'ready', records: [record] };
+  const storage = createStorage();
+  const pinned = await setHandoverPinned(state, record.id, true, storage);
+  assert.deepEqual(pinned.records[0], { ...record, isPinned: true });
+  assert.deepEqual(state.records, [record]);
+  const reloaded = parseRecordsEnvelope(storage.calls.set[0].value);
+  const edited = await saveHandover(reloaded, { ...record, notes: 'changed' }, storage, { id: record.id });
+  assert.equal(edited.records[0].isPinned, true);
+  const unpinned = await setHandoverPinned(pinned, record.id, false, storage);
+  assert.deepEqual(unpinned.records[0], { ...record, isPinned: false });
+});
+
+test('cleanup only removes unpinned records with one envelope write', async () => {
+  const pinned = { ...record, id: 'pinned', isPinned: true };
+  for (const records of [[record, pinned, { ...record, id: 'false', isPinned: false }], [record], [pinned], []]) {
+    const storage = createStorage();
+    const state = { status: 'ready', records };
+    const next = await deleteUnpinnedHandovers(state, storage);
+    const expected = records.filter(item => item.isPinned === true);
+    assert.deepEqual(next.records, expected);
+    assert.deepEqual(state.records, records);
+    assert.equal(storage.calls.set.length, records.length === expected.length ? 0 : 1);
+    if (storage.calls.set.length) assert.deepEqual(parseRecordsEnvelope(storage.calls.set[0].value).records, expected);
+  }
+});
+
+test('pin and cleanup leave the source unchanged on rejection and block invalid state', async () => {
+  const state = { status: 'ready', records: [record] };
+  const before = structuredClone(state);
+  const rejected = { getItem: async () => null, setItem: async () => { throw new Error('write'); } };
+  await assert.rejects(setHandoverPinned(state, record.id, true, rejected));
+  await assert.rejects(deleteUnpinnedHandovers(state, rejected));
+  assert.deepEqual(state, before);
+  for (const invalid of [
+    parseRecordsEnvelope('{broken'),
+    parseRecordsEnvelope(envelope([record], 2)),
+    { status: 'error', reason: 'read-failed', raw: null },
+  ]) {
+    const storage = createStorage();
+    await assert.rejects(setHandoverPinned(invalid, record.id, true, storage));
+    await assert.rejects(deleteUnpinnedHandovers(invalid, storage));
+    assert.equal(storage.calls.set.length, 0);
+  }
+});
+
+test('pin and cleanup only resolve after persistence completes', async () => {
+  for (const operation of [
+    (state, storage) => setHandoverPinned(state, record.id, true, storage),
+    (state, storage) => deleteUnpinnedHandovers(state, storage),
+  ]) {
+    let release;
+    const storage = { setItem: () => new Promise(resolve => { release = resolve; }) };
+    const state = { status: 'ready', records: [record] };
+    let done = false;
+    const pending = operation(state, storage).then(result => { done = true; return result; });
+    await Promise.resolve();
+    assert.equal(done, false);
+    assert.deepEqual(state.records, [record]);
+    release();
+    await pending;
+    assert.equal(done, true);
+  }
+});
+
+test('pinning missing IDs is rejected and individual deletion still removes pinned records', async () => {
+  const storage = createStorage();
+  const state = { status: 'ready', records: [{ ...record, isPinned: true }] };
+  await assert.rejects(setHandoverPinned(state, 'missing', true, storage));
+  assert.equal(storage.calls.set.length, 0);
+  assert.deepEqual((await deleteHandover(state, record.id, storage)).records, []);
 });

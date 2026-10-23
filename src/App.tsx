@@ -8,18 +8,20 @@ import {
   createEmptyHandoverDraft,
   getRecentHandovers,
   sortHandovers,
+  sortPinnedHandovers,
   validateHandoverDraft,
 } from './lib/handover.ts';
-import { deleteHandover, loadRecords, saveHandover } from './lib/storage.ts';
+import { deleteHandover, loadRecords, saveHandover, setHandoverPinned, deleteUnpinnedHandovers } from './lib/storage.ts';
 import type { RecordsState } from './lib/storage.ts';
 import type { Handover, HandoverDraft, TemplateId } from './types/handover.ts';
 import EditorPage from './pages/EditorPage.tsx';
 import HomePage from './pages/HomePage.tsx';
 import RecordDetailPage from './pages/RecordDetailPage.tsx';
 import RecordListPage from './pages/RecordListPage.tsx';
+import SettingsPage from './pages/SettingsPage.tsx';
 import TemplatePage from './pages/TemplatePage.tsx';
 
-type Screen = 'home' | 'templates' | 'editor' | 'list' | 'detail';
+type Screen = 'home' | 'templates' | 'editor' | 'list' | 'detail' | 'settings';
 type LoadState = RecordsState | { status: 'loading' };
 
 interface ConfirmDialogProps {
@@ -88,6 +90,12 @@ function App() {
   const [detailError, setDetailError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [copying, setCopying] = useState(false);
+  const [pendingCleanup, setPendingCleanup] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
+  const [cleanupError, setCleanupError] = useState<string | null>(null);
+  const [navigationError, setNavigationError] = useState<string | null>(null);
+  const [pinning, setPinning] = useState(false);
+  const [pinError, setPinError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Handover | null>(null);
   const [exitTarget, setExitTarget] = useState<Screen | null>(null);
@@ -124,6 +132,38 @@ function App() {
       unsubscribe?.();
     };
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    let unsubscribe: (() => void) | undefined;
+    const showSettings = screen === 'home' && recordsState.status === 'ready';
+    void import('@apps-in-toss/web-framework').then(async ({ partner, tdsEvent }) => {
+      if (!active) return;
+      if (!showSettings) {
+        await partner.removeAccessoryButton();
+        return;
+      }
+      unsubscribe = tdsEvent.addEventListener('navigationAccessoryEvent', {
+        onEvent: ({ id }) => {
+          if (id !== 'record-settings' || mutationLock.current) return;
+          setCleanupError(null);
+          setScreen('settings');
+        },
+      });
+      await partner.addAccessoryButton({
+        id: 'record-settings',
+        title: '설정',
+        icon: { name: 'icon-setting-mono' },
+      });
+      if (active) setNavigationError(null);
+    }).catch(() => {
+      if (active && showSettings) setNavigationError('설정 버튼을 불러오지 못했어요. 앱을 다시 열어 주세요.');
+    });
+    return () => {
+      active = false;
+      unsubscribe?.();
+    };
+  }, [screen, recordsState.status]);
 
   function announce(message: string) {
     setToast(message);
@@ -238,6 +278,41 @@ function App() {
     }
   }
 
+  async function handlePin(id: string) {
+    if (recordsState.status !== 'ready' || mutationLock.current || pendingDelete || pendingCleanup || exitTarget) return;
+    const record = recordsState.records.find((item) => item.id === id);
+    if (!record) return;
+    mutationLock.current = true;
+    setPinning(true);
+    setPinError(null);
+    try {
+      setRecordsState(await setHandoverPinned(recordsState, id, !record.isPinned));
+      announce(record.isPinned ? '고정을 해제했어요.' : '기록을 고정했어요.');
+    } catch {
+      setPinError('고정 상태를 바꾸지 못했어요. 다시 시도해 주세요.');
+    } finally {
+      mutationLock.current = false;
+      setPinning(false);
+    }
+  }
+
+  async function confirmCleanup() {
+    if (!pendingCleanup || recordsState.status !== 'ready' || mutationLock.current) return;
+    mutationLock.current = true;
+    setCleaning(true);
+    setCleanupError(null);
+    try {
+      setRecordsState(await deleteUnpinnedHandovers(recordsState));
+      setPendingCleanup(false);
+      announce('고정하지 않은 기록을 삭제했어요.');
+    } catch {
+      setCleanupError('삭제하지 못했어요. 모든 기록은 그대로 있어요. 다시 시도해 주세요.');
+    } finally {
+      mutationLock.current = false;
+      setCleaning(false);
+    }
+  }
+
   async function confirmDelete() {
     if (!pendingDelete || recordsState.status !== 'ready' || mutationLock.current) return;
     mutationLock.current = true;
@@ -259,6 +334,18 @@ function App() {
 
   useEffect(() => {
     platformBackHandler.current = () => {
+      if (mutationLock.current) return;
+      if (pendingCleanup) {
+        setPendingCleanup(false);
+        setCleanupError(null);
+        return;
+      }
+      if (pendingDelete) {
+        setPendingDelete(null);
+        setDetailError(null);
+        return;
+      }
+      if (exitTarget) { setExitTarget(null); return; }
       if (screen === 'home') {
         void import('@apps-in-toss/web-framework')
           .then(({ closeView }) => closeView())
@@ -268,26 +355,26 @@ function App() {
       } else if (screen === 'editor') {
         if (!areHandoverDraftsEqual(draft, savedDraft)) setExitTarget(editorOrigin);
         else setScreen(editorOrigin);
-      } else if (screen === 'list') {
+      } else if (screen === 'list' || screen === 'settings') {
         setScreen('home');
       } else {
         setScreen('list');
       }
     };
-  }, [draft, editorOrigin, savedDraft, screen]);
+  }, [draft, editorOrigin, savedDraft, screen, pendingCleanup, pendingDelete, exitTarget]);
 
   const records = useMemo(() => recordsState.status === 'ready'
     ? sortHandovers(recordsState.records)
     : [], [recordsState]);
 
   if (recordsState.status === 'loading') {
-    return <main className="status-screen" aria-live="polite"><p className="eyebrow">인계한장</p><h1>기록을 불러오고 있어요</h1></main>;
+    return <main className="status-screen" aria-live="polite"><h1>기록을 불러오고 있어요</h1></main>;
   }
 
   if (recordsState.status === 'error') {
     return (
       <main className="status-screen">
-        <p className="eyebrow">인계한장</p>
+
         <h1>기록을 안전하게 불러오지 못했어요</h1>
         <p className="page-description">저장된 내용을 보호하기 위해 새 기록 저장과 삭제를 잠시 막았어요. 다시 확인해 주세요.</p>
         <button className="primary-button" type="button" onClick={() => { void retryLoad(); }}>다시 불러오기</button>
@@ -295,14 +382,19 @@ function App() {
     );
   }
 
+  const pinnedCount = records.filter((record) => record.isPinned === true).length;
+  const mutationBusy = saving || deleting || pinning || cleaning;
   const selectedRecord = records.find(({ id }) => id === recordId);
   const selectedTemplate = templates.find(({ id }) => id === draft?.templateId);
 
   return (
     <div className="app-shell">
+      <div inert={Boolean(pendingCleanup || pendingDelete || exitTarget)}>
       {screen === 'home' && (
         <HomePage
           recentRecords={getRecentHandovers(records, 3)}
+          busy={mutationBusy}
+          onPin={(id) => { void handlePin(id); }}
           onCreate={startCreate}
           onOpenRecords={() => setScreen('list')}
           onOpenRecord={openRecord}
@@ -328,7 +420,9 @@ function App() {
       )}
       {screen === 'list' && (
         <RecordListPage
-          records={records}
+          records={sortPinnedHandovers(records)}
+          busy={mutationBusy}
+          onPin={(id) => { void handlePin(id); }}
           onCreate={startCreate}
           onOpen={openRecord}
         />
@@ -336,12 +430,29 @@ function App() {
       {screen === 'detail' && (
         <RecordDetailPage
           record={selectedRecord}
+          busy={mutationBusy}
+          onPin={() => selectedRecord && void handlePin(selectedRecord.id)}
           error={detailError}
           onEdit={startEdit}
           onCopy={() => selectedRecord && void handleCopy(toDraft(selectedRecord))}
           onDelete={() => selectedRecord && setPendingDelete(selectedRecord)}
         />
       )}
+
+      {screen === 'settings' && (
+        <SettingsPage total={records.length} pinned={pinnedCount} busy={mutationBusy}
+          error={pendingCleanup ? null : cleanupError}
+          onCleanup={() => {
+            if (mutationLock.current || pendingCleanup || records.length === pinnedCount) return;
+            setCleanupError(null);
+            setPendingCleanup(true);
+          }}
+        />
+      )}
+      </div>
+
+      {screen === 'home' && navigationError && <p className="form-error pin-error" role="alert">{navigationError}</p>}
+      {pinError && <p className="form-error pin-error" role="alert">{pinError}</p>}
 
       {toast && <div className="toast" role="status" aria-live="polite">{toast}</div>}
 
@@ -352,6 +463,19 @@ function App() {
           confirmLabel="나가기"
           onCancel={() => setExitTarget(null)}
           onConfirm={discardAndExit}
+        />
+      )}
+
+      {pendingCleanup && (
+        <ConfirmDialog
+          title="고정하지 않은 기록을 삭제할까요?"
+          description={`기록 ${records.length - pinnedCount}건을 삭제하고 고정 기록 ${pinnedCount}건은 남겨요. 삭제한 기록은 복구할 수 없어요.`}
+          confirmLabel="삭제하기"
+          destructive
+          busy={cleaning}
+          error={cleanupError}
+          onCancel={() => { if (!mutationLock.current) { setPendingCleanup(false); setCleanupError(null); } }}
+          onConfirm={() => { void confirmCleanup(); }}
         />
       )}
 

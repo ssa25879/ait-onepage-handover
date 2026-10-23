@@ -1,8 +1,11 @@
+import PinButton from '../components/PinButton.tsx';
 import type { Handover } from '../types/handover.ts';
 import PrivacyNotice from '../components/PrivacyNotice.tsx';
 
 interface HomePageProps {
   recentRecords: Handover[];
+  busy: boolean;
+  onPin: (id: string) => void;
   onCreate: () => void;
   onOpenRecords: () => void;
   onOpenRecord: (id: string) => void;
@@ -13,11 +16,10 @@ function displayDate(workDate: string): string {
   return `${year}년 ${Number(month)}월 ${Number(day)}일`;
 }
 
-function HomePage({ recentRecords, onCreate, onOpenRecords, onOpenRecord }: HomePageProps) {
+function HomePage({ recentRecords, busy, onPin, onCreate, onOpenRecords, onOpenRecord }: HomePageProps) {
   return (
     <main className="screen home-screen">
       <header className="home-heading">
-        <p className="eyebrow">인계한장</p>
         <p className="home-kicker">퇴근 전, 차분하게</p>
         <h1 className="home-title">인수인계를<br />한 장으로 정리해요</h1>
         <p className="home-description">
@@ -48,9 +50,10 @@ function HomePage({ recentRecords, onCreate, onOpenRecords, onOpenRecord }: Home
         ) : (
           <div className="record-list compact-list">
             {recentRecords.map((record) => (
+              <div className="record-row" key={record.id}>
               <button
                 className="record-card"
-                key={record.id}
+                disabled={busy}
                 type="button"
                 onClick={() => onOpenRecord(record.id)}
               >
@@ -62,6 +65,8 @@ function HomePage({ recentRecords, onCreate, onOpenRecords, onOpenRecord }: Home
                 </span>
                 <span className="record-type">{record.templateId === 'cafe' ? '카페·음식점' : record.templateId === 'retail' ? '편의점·소매점' : '일반 교대근무'}</span>
               </button>
+              <PinButton pinned={record.isPinned === true} disabled={busy} onClick={() => onPin(record.id)} />
+              </div>
             ))}
           </div>
         )}

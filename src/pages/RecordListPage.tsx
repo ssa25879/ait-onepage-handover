@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import PinButton from '../components/PinButton.tsx';
 import BannerAd from '../components/BannerAd.tsx';
 import { isHistoryBannerNeeded } from '../lib/bannerAds.ts';
 import type { Handover } from '../types/handover.ts';
@@ -6,6 +7,8 @@ import PageHeader from '../components/PageHeader.tsx';
 
 interface RecordListPageProps {
   records: Handover[];
+  busy: boolean;
+  onPin: (id: string) => void;
   onCreate: () => void;
   onOpen: (id: string) => void;
 }
@@ -15,7 +18,7 @@ function displayDate(workDate: string): string {
   return `${year}년 ${Number(month)}월 ${Number(day)}일`;
 }
 
-function RecordListPage({ records, onCreate, onOpen }: RecordListPageProps) {
+function RecordListPage({ records, busy, onPin, onCreate, onOpen }: RecordListPageProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const [shouldShowBanner, setShouldShowBanner] = useState(false);
 
@@ -54,19 +57,20 @@ function RecordListPage({ records, onCreate, onOpen }: RecordListPageProps) {
   return (
     <main className="screen">
       <div className="record-list-content" ref={contentRef}>
-        <PageHeader title="모든 기록" description="저장한 인수인계를 날짜순으로 모았어요." />
+        <PageHeader title="모든 기록" description="고정한 기록을 먼저, 나머지는 날짜순으로 모았어요." />
         {records.length === 0 ? (
           <section className="empty-card list-empty">
             <p className="empty-title">아직 기록이 없어요</p>
             <p className="empty-description">첫 인수인계를 작성해 보세요.</p>
-            <button className="primary-button" type="button" onClick={onCreate}>새 인수인계 작성</button>
+            <button className="primary-button" type="button" disabled={busy} onClick={onCreate}>새 인수인계 작성</button>
           </section>
         ) : (
           <>
-            <button className="secondary-button list-create" type="button" onClick={onCreate}>새 기록 작성</button>
+            <button className="secondary-button list-create" type="button" disabled={busy} onClick={onCreate}>새 기록 작성</button>
             <section className="record-list" aria-label="저장된 인수인계 기록">
               {records.map((record) => (
-                <button className="record-card" key={record.id} type="button" onClick={() => onOpen(record.id)}>
+                <div className="record-row" key={record.id}>
+                <button className="record-card" type="button" disabled={busy} onClick={() => onOpen(record.id)}>
                   <span className="record-card-copy">
                     <span className="record-date">{displayDate(record.workDate)}</span>
                     <span className="record-summary">
@@ -75,6 +79,8 @@ function RecordListPage({ records, onCreate, onOpen }: RecordListPageProps) {
                   </span>
                   <span className="record-type">{record.templateId === 'cafe' ? '카페·음식점' : record.templateId === 'retail' ? '편의점·소매점' : '일반 교대근무'}</span>
                 </button>
+                <PinButton pinned={record.isPinned === true} disabled={busy} onClick={() => onPin(record.id)} />
+                </div>
               ))}
             </section>
           </>

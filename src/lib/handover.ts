@@ -70,3 +70,8 @@ export function sortHandovers(records: readonly Handover[]): Handover[] {
 export function getRecentHandovers(records: readonly Handover[], limit = 3): Handover[] {
   return sortHandovers(records).slice(0, limit);
 }
+
+export function sortPinnedHandovers(records: readonly Handover[]): Handover[] {
+  return sortHandovers(records).sort((left, right) =>
+    Number(right.isPinned === true) - Number(left.isPinned === true));
+}

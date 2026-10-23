@@ -14,6 +14,7 @@ export interface HandoverDraft {
 
 export interface Handover extends HandoverDraft {
   id: string;
+  isPinned?: boolean;
   createdAt: string;
   updatedAt: string;
 }

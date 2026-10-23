@@ -60,3 +60,5 @@
 - [앱 권한](https://developers-apps-in-toss.toss.im/documentation/common/permission)
 - [인앱 광고](https://developers-apps-in-toss.toss.im/guide/monetization/in-app-ad)
 - [정산](https://developers-apps-in-toss.toss.im/guide/settlement)
+
+후속 기능의 확정 명세·구현 작업은 [record-pins-and-cleanup](../record-pins-and-cleanup/proposal.md)에서 관리한다. 초기화 범위는 고정 기록을 보존하는 미고정 기록 삭제로 확정했으며, 위 후보 설명보다 해당 명세가 우선한다.

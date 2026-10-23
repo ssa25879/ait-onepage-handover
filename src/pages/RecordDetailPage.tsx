@@ -1,3 +1,4 @@
+import PinButton from '../components/PinButton.tsx';
 import { templates } from '../data/templates.ts';
 import type { Handover } from '../types/handover.ts';
 import PageHeader from '../components/PageHeader.tsx';
@@ -5,6 +6,8 @@ import PageHeader from '../components/PageHeader.tsx';
 interface RecordDetailPageProps {
   record: Handover | undefined;
   error: string | null;
+  busy: boolean;
+  onPin: () => void;
   onEdit: () => void;
   onCopy: () => void;
   onDelete: () => void;
@@ -21,7 +24,7 @@ function displayDate(workDate: string): string {
   return `${year}년 ${Number(month)}월 ${Number(day)}일`;
 }
 
-function RecordDetailPage({ record, error, onEdit, onCopy, onDelete }: RecordDetailPageProps) {
+function RecordDetailPage({ record, error, busy, onPin, onEdit, onCopy, onDelete }: RecordDetailPageProps) {
   if (!record) {
     return (
       <main className="screen">
@@ -35,7 +38,10 @@ function RecordDetailPage({ record, error, onEdit, onCopy, onDelete }: RecordDet
 
   return (
     <main className="screen detail-screen">
+      <div className="detail-heading">
       <PageHeader title="인수인계 기록" description={`${displayDate(record.workDate)} · ${template?.title ?? '업무 유형'}`} />
+        <PinButton pinned={record.isPinned === true} disabled={busy} onClick={onPin} />
+      </div>
       <section className="detail-content" aria-label="인수인계 내용">
         {sections.map(({ field, title }) => record[field].trim().length > 0 && (
           <article className="detail-section" key={field}>
@@ -46,9 +52,9 @@ function RecordDetailPage({ record, error, onEdit, onCopy, onDelete }: RecordDet
       </section>
       {error && <p className="form-error" role="alert">{error}</p>}
       <div className="detail-actions">
-        <button className="primary-button" type="button" onClick={onCopy}>내용 복사</button>
-        <button className="secondary-button" type="button" onClick={onEdit}>수정하기</button>
-        <button className="danger-button" type="button" onClick={onDelete}>기록 삭제</button>
+        <button className="primary-button" type="button" disabled={busy} onClick={onCopy}>내용 복사</button>
+        <button className="secondary-button" type="button" disabled={busy} onClick={onEdit}>수정하기</button>
+        <button className="danger-button" type="button" disabled={busy} onClick={onDelete}>기록 삭제</button>
       </div>
     </main>
   );
