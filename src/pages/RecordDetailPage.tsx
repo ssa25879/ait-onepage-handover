@@ -5,7 +5,6 @@ import PageHeader from '../components/PageHeader.tsx';
 interface RecordDetailPageProps {
   record: Handover | undefined;
   error: string | null;
-  onBack: () => void;
   onEdit: () => void;
   onCopy: () => void;
   onDelete: () => void;
@@ -22,11 +21,11 @@ function displayDate(workDate: string): string {
   return `${year}년 ${Number(month)}월 ${Number(day)}일`;
 }
 
-function RecordDetailPage({ record, error, onBack, onEdit, onCopy, onDelete }: RecordDetailPageProps) {
+function RecordDetailPage({ record, error, onEdit, onCopy, onDelete }: RecordDetailPageProps) {
   if (!record) {
     return (
       <main className="screen">
-        <PageHeader title="기록을 찾을 수 없어요" description="목록에서 다른 기록을 선택해 주세요." onBack={onBack} />
+        <PageHeader title="기록을 찾을 수 없어요" description="목록에서 다른 기록을 선택해 주세요." />
         {error && <p className="form-error" role="alert">{error}</p>}
       </main>
     );
@@ -36,7 +35,7 @@ function RecordDetailPage({ record, error, onBack, onEdit, onCopy, onDelete }: R
 
   return (
     <main className="screen detail-screen">
-      <PageHeader title="인수인계 기록" description={`${displayDate(record.workDate)} · ${template?.title ?? '업무 유형'}`} onBack={onBack} />
+      <PageHeader title="인수인계 기록" description={`${displayDate(record.workDate)} · ${template?.title ?? '업무 유형'}`} />
       <section className="detail-content" aria-label="인수인계 내용">
         {sections.map(({ field, title }) => record[field].trim().length > 0 && (
           <article className="detail-section" key={field}>

@@ -171,14 +171,6 @@ function App() {
     setScreen('editor');
   }
 
-  function requestEditorExit(target: Screen) {
-    if (!areHandoverDraftsEqual(draft, savedDraft)) {
-      setExitTarget(target);
-      return;
-    }
-    setScreen(target);
-  }
-
   function discardAndExit() {
     if (exitTarget) setScreen(exitTarget);
     setExitTarget(null);
@@ -317,7 +309,7 @@ function App() {
         />
       )}
       {screen === 'templates' && (
-        <TemplatePage onBack={() => setScreen('home')} onSelect={selectTemplate} />
+        <TemplatePage onSelect={selectTemplate} />
       )}
       {screen === 'editor' && draft && selectedTemplate && (
         <EditorPage
@@ -326,7 +318,6 @@ function App() {
           error={editorError}
           saving={saving}
           copying={copying}
-          onBack={() => requestEditorExit(editorOrigin)}
           onChange={(field, value) => {
             setDraft((current) => current ? { ...current, [field]: value } : current);
             setEditorError(null);
@@ -338,7 +329,6 @@ function App() {
       {screen === 'list' && (
         <RecordListPage
           records={records}
-          onBack={() => setScreen('home')}
           onCreate={startCreate}
           onOpen={openRecord}
         />
@@ -347,7 +337,6 @@ function App() {
         <RecordDetailPage
           record={selectedRecord}
           error={detailError}
-          onBack={() => setScreen('list')}
           onEdit={startEdit}
           onCopy={() => selectedRecord && void handleCopy(toDraft(selectedRecord))}
           onDelete={() => selectedRecord && setPendingDelete(selectedRecord)}

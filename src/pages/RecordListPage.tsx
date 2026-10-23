@@ -6,7 +6,6 @@ import PageHeader from '../components/PageHeader.tsx';
 
 interface RecordListPageProps {
   records: Handover[];
-  onBack: () => void;
   onCreate: () => void;
   onOpen: (id: string) => void;
 }
@@ -16,7 +15,7 @@ function displayDate(workDate: string): string {
   return `${year}년 ${Number(month)}월 ${Number(day)}일`;
 }
 
-function RecordListPage({ records, onBack, onCreate, onOpen }: RecordListPageProps) {
+function RecordListPage({ records, onCreate, onOpen }: RecordListPageProps) {
   const contentRef = useRef<HTMLDivElement>(null);
   const [shouldShowBanner, setShouldShowBanner] = useState(false);
 
@@ -55,7 +54,7 @@ function RecordListPage({ records, onBack, onCreate, onOpen }: RecordListPagePro
   return (
     <main className="screen">
       <div className="record-list-content" ref={contentRef}>
-        <PageHeader title="모든 기록" description="저장한 인수인계를 날짜순으로 모았어요." onBack={onBack} />
+        <PageHeader title="모든 기록" description="저장한 인수인계를 날짜순으로 모았어요." />
         {records.length === 0 ? (
           <section className="empty-card list-empty">
             <p className="empty-title">아직 기록이 없어요</p>

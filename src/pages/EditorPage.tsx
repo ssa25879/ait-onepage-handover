@@ -10,7 +10,6 @@ interface EditorPageProps {
   error: string | null;
   saving: boolean;
   copying: boolean;
-  onBack: () => void;
   onChange: (field: keyof HandoverDraft, value: string) => void;
   onSave: () => void;
   onCopy: () => void;
@@ -22,7 +21,7 @@ const sections: { field: HandoverBodyField; title: string }[] = [
   { field: 'notes', title: '전달사항' },
 ];
 
-function EditorPage({ draft, template, error, saving, copying, onBack, onChange, onSave, onCopy }: EditorPageProps) {
+function EditorPage({ draft, template, error, saving, copying, onChange, onSave, onCopy }: EditorPageProps) {
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     onSave();
@@ -33,7 +32,6 @@ function EditorPage({ draft, template, error, saving, copying, onBack, onChange,
       <PageHeader
         title={template.title}
         description="다음 근무자가 알아야 할 내용을 적어 주세요."
-        onBack={onBack}
       />
 
       <form className="editor-form" onSubmit={handleSubmit}>

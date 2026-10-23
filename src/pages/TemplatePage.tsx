@@ -3,17 +3,15 @@ import type { TemplateId } from '../types/handover.ts';
 import PageHeader from '../components/PageHeader.tsx';
 
 interface TemplatePageProps {
-  onBack: () => void;
   onSelect: (templateId: TemplateId) => void;
 }
 
-function TemplatePage({ onBack, onSelect }: TemplatePageProps) {
+function TemplatePage({ onSelect }: TemplatePageProps) {
   return (
     <main className="screen">
       <PageHeader
         title="어떤 일을 인계하나요?"
         description="업무에 맞는 유형을 고르면 작성 안내를 보여드려요."
-        onBack={onBack}
       />
       <section className="template-list" aria-label="업무 유형 선택">
         {templates.map((template, index) => (
