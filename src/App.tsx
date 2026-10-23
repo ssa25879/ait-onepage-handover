@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import './App.css';
 import { initializeBannerAds } from './lib/bannerAds.ts';
 import { templates } from './data/templates.ts';
+import { createPresetDraft, getHandoverPresets } from './data/presets.ts';
 import { copyHandover } from './lib/clipboard.ts';
 import {
   areHandoverDraftsEqual,
-  createEmptyHandoverDraft,
   getRecentHandovers,
   sortHandovers,
   sortPinnedHandovers,
@@ -20,8 +20,9 @@ import RecordDetailPage from './pages/RecordDetailPage.tsx';
 import RecordListPage from './pages/RecordListPage.tsx';
 import SettingsPage from './pages/SettingsPage.tsx';
 import TemplatePage from './pages/TemplatePage.tsx';
+import PresetPage from './pages/PresetPage.tsx';
 
-type Screen = 'home' | 'templates' | 'editor' | 'list' | 'detail' | 'settings';
+type Screen = 'home' | 'templates' | 'presets' | 'editor' | 'list' | 'detail' | 'settings';
 type LoadState = RecordsState | { status: 'loading' };
 
 interface ConfirmDialogProps {
@@ -82,6 +83,7 @@ function toDraft(record: Handover): HandoverDraft {
 function App() {
   const [recordsState, setRecordsState] = useState<LoadState>({ status: 'loading' });
   const [screen, setScreen] = useState<Screen>('home');
+  const [presetTemplateId, setPresetTemplateId] = useState<TemplateId>('cafe');
   const [draft, setDraft] = useState<HandoverDraft | null>(null);
   const [savedDraft, setSavedDraft] = useState<HandoverDraft | null>(null);
   const [editorOrigin, setEditorOrigin] = useState<Screen>('templates');
@@ -181,11 +183,20 @@ function App() {
   }
 
   function selectTemplate(templateId: TemplateId) {
-    const nextDraft = createEmptyHandoverDraft(templateId);
+    if (getHandoverPresets(templateId).length > 0) {
+      setPresetTemplateId(templateId);
+      setScreen('presets');
+      return;
+    }
+    startPresetDraft(templateId);
+  }
+
+  function startPresetDraft(templateId: TemplateId, presetId?: string) {
+    const nextDraft = createPresetDraft(templateId, presetId);
     setDraft(nextDraft);
     setSavedDraft(nextDraft);
     setRecordId(null);
-    setEditorOrigin('templates');
+    setEditorOrigin(getHandoverPresets(templateId).length > 0 ? 'presets' : 'templates');
     setEditorError(null);
     setScreen('editor');
   }
@@ -352,6 +363,8 @@ function App() {
           .catch(() => {});
       } else if (screen === 'templates') {
         setScreen('home');
+      } else if (screen === 'presets') {
+        setScreen('templates');
       } else if (screen === 'editor') {
         if (!areHandoverDraftsEqual(draft, savedDraft)) setExitTarget(editorOrigin);
         else setScreen(editorOrigin);
@@ -402,6 +415,12 @@ function App() {
       )}
       {screen === 'templates' && (
         <TemplatePage onSelect={selectTemplate} />
+      )}
+      {screen === 'presets' && (
+        <PresetPage
+          template={templates.find(({ id }) => id === presetTemplateId)!}
+          onSelect={(presetId) => startPresetDraft(presetTemplateId, presetId)}
+        />
       )}
       {screen === 'editor' && draft && selectedTemplate && (
         <EditorPage
