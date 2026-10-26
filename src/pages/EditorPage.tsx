@@ -1,4 +1,5 @@
-import type { FormEvent } from 'react';
+import { useRef, type FormEvent } from 'react';
+import EditorBannerAd from '../components/EditorBannerAd.tsx';
 import type { HandoverDraft, HandoverBodyField } from '../types/handover.ts';
 import type { HandoverTemplate } from '../data/templates.ts';
 import PageHeader from '../components/PageHeader.tsx';
@@ -22,6 +23,7 @@ const sections: { field: HandoverBodyField; title: string }[] = [
 ];
 
 function EditorPage({ draft, template, error, saving, copying, onChange, onSave, onCopy }: EditorPageProps) {
+  const contentRef = useRef<HTMLDivElement>(null);
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     onSave();
@@ -29,6 +31,7 @@ function EditorPage({ draft, template, error, saving, copying, onChange, onSave,
 
   return (
     <main className="screen editor-screen">
+      <div className="editor-content" ref={contentRef}>
       <PageHeader
         title={template.title}
         description="다음 근무자가 알아야 할 내용을 적어 주세요."
@@ -79,6 +82,8 @@ function EditorPage({ draft, template, error, saving, copying, onChange, onSave,
           </div>
         </div>
       </form>
+      </div>
+      <EditorBannerAd contentRef={contentRef} />
     </main>
   );
 }

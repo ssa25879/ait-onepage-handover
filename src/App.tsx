@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import './App.css';
 import { initializeBannerAds } from './lib/bannerAds.ts';
+import { initializeUserIdentity } from './lib/userIdentity.ts';
 import { templates } from './data/templates.ts';
 import { createPresetDraft, getHandoverPresets } from './data/presets.ts';
 import { copyHandover } from './lib/clipboard.ts';
@@ -105,6 +106,7 @@ function App() {
   const mutationLock = useRef(false);
   const copyLock = useRef(false);
   const platformBackHandler = useRef<() => void>(() => {});
+  const settingsOrigin = useRef<Screen>('home');
 
   useEffect(() => {
     let mounted = true;
@@ -115,6 +117,7 @@ function App() {
   }, []);
 
   useEffect(() => {
+    void initializeUserIdentity();
     void initializeBannerAds();
   }, []);
 
@@ -138,7 +141,7 @@ function App() {
   useEffect(() => {
     let active = true;
     let unsubscribe: (() => void) | undefined;
-    const showSettings = screen === 'home' && recordsState.status === 'ready';
+    const showSettings = recordsState.status === 'ready';
     void import('@apps-in-toss/web-framework').then(async ({ partner, tdsEvent }) => {
       if (!active) return;
       if (!showSettings) {
@@ -147,7 +150,8 @@ function App() {
       }
       unsubscribe = tdsEvent.addEventListener('navigationAccessoryEvent', {
         onEvent: ({ id }) => {
-          if (id !== 'record-settings' || mutationLock.current) return;
+          if (id !== 'record-settings' || mutationLock.current || pendingDelete || pendingCleanup || exitTarget || screen === 'settings') return;
+          settingsOrigin.current = screen;
           setCleanupError(null);
           setScreen('settings');
         },
@@ -165,7 +169,7 @@ function App() {
       active = false;
       unsubscribe?.();
     };
-  }, [screen, recordsState.status]);
+  }, [screen, recordsState.status, pendingDelete, pendingCleanup, exitTarget]);
 
   function announce(message: string) {
     setToast(message);
@@ -368,7 +372,9 @@ function App() {
       } else if (screen === 'editor') {
         if (!areHandoverDraftsEqual(draft, savedDraft)) setExitTarget(editorOrigin);
         else setScreen(editorOrigin);
-      } else if (screen === 'list' || screen === 'settings') {
+      } else if (screen === 'settings') {
+        setScreen(settingsOrigin.current);
+      } else if (screen === 'list') {
         setScreen('home');
       } else {
         setScreen('list');
@@ -470,7 +476,7 @@ function App() {
       )}
       </div>
 
-      {screen === 'home' && navigationError && <p className="form-error pin-error" role="alert">{navigationError}</p>}
+      {navigationError && <p className="form-error pin-error" role="alert">{navigationError}</p>}
       {pinError && <p className="form-error pin-error" role="alert">{pinError}</p>}
 
       {toast && <div className="toast" role="status" aria-live="polite">{toast}</div>}

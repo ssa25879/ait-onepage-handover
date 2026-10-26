@@ -272,6 +272,8 @@
 
 .record-card-copy {
   display: flex;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
   flex-direction: column;
   gap: 6px;
@@ -392,6 +394,21 @@
 
 .editor-screen {
   gap: 20px;
+}
+
+.editor-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.editor-content .editor-footer {
+  margin-bottom: 0;
+}
+
+.editor-ad-placement {
+  margin-top: 12px;
+  width: 100%;
 }
 
 .editor-form {

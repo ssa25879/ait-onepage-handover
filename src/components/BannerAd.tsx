@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { attachBannerAd, bannerAdGroupId } from '../lib/bannerAds.ts';
 
-function BannerAd() {
+function BannerAd({ className = '' }: { className?: string }) {
   const targetRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<'loading' | 'visible' | 'hidden'>('loading');
 
@@ -20,7 +20,7 @@ function BannerAd() {
   return (
     <div
       ref={targetRef}
-      className={`banner-slot${status === 'visible' ? ' banner-slot-visible' : ''}`}
+      className={`banner-slot${status === 'visible' ? ' banner-slot-visible' : ''} ${className}`}
       aria-label={status === 'visible' ? '광고' : undefined}
       aria-hidden={status !== 'visible'}
       role={status === 'visible' ? 'region' : undefined}
