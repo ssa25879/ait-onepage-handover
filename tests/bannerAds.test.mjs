@@ -5,6 +5,7 @@ import {
   isHistoryBannerNeeded,
   resolveBannerAdGroupId,
 } from '../src/lib/bannerAds.ts';
+import { TEST_BANNER_AD_GROUP_ID } from '../src/lib/testAdGroup.ts';
 
 function createSdk({ supported = true, initializeError = false, delayInitialization = false } = {}) {
   const calls = { initialize: 0, attach: 0, destroy: 0 };
@@ -44,7 +45,7 @@ test('shows a banner only when existing records already make the content scroll'
 });
 
 test('uses a test group in development and hides production ads without an operations group', () => {
-  assert.equal(resolveBannerAdGroupId('development'), 'ait-ad-test-banner-id');
+  assert.equal(resolveBannerAdGroupId('development', undefined, TEST_BANNER_AD_GROUP_ID), 'ait-ad-test-banner-id');
   assert.equal(resolveBannerAdGroupId('production'), null);
   assert.equal(resolveBannerAdGroupId('production', 'live-group'), 'live-group');
 });

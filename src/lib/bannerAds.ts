@@ -1,3 +1,5 @@
+import { TEST_BANNER_AD_GROUP_ID } from './testAdGroup.ts';
+
 export interface BannerAdListeners {
   onVisible?: () => void;
   onUnavailable?: () => void;
@@ -22,8 +24,9 @@ export function isHistoryBannerNeeded(
 export function resolveBannerAdGroupId(
   environment: 'development' | 'production',
   operationGroupId?: string | null,
+  testGroupId?: string | null,
 ): string | null {
-  if (environment === 'development') return 'ait-ad-test-banner-id';
+  if (environment === 'development') return testGroupId ?? null;
   return operationGroupId?.trim() || null;
 }
 
@@ -143,6 +146,7 @@ export function createBannerAdController(
 export const bannerAdGroupId = resolveBannerAdGroupId(
   import.meta.env?.DEV ? 'development' : 'production',
   import.meta.env?.VITE_TOSS_AD_GROUP_ID,
+  import.meta.env?.DEV ? TEST_BANNER_AD_GROUP_ID : null,
 );
 
 const platformBannerController = createBannerAdController(
